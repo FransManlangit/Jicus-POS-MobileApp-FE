@@ -1,20 +1,30 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState, useEffect } from "react";
+import Toast from "react-native-toast-message";
+import { NavigationContainer } from "@react-navigation/native";
+import { NativeBaseProvider, extendTheme } from "native-base";
+import Auth from "./context/store/Auth";
+import Main from "./navigators/Main";
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+const newColorTheme = {
+  brand: {
+    900: "#8287af",
+    800: "#7c83db",
+    700: "#b3bef6",
   },
-});
+};
+
+const theme = extendTheme({ colors: newColorTheme });
+
+const App = () => {
+  return (
+    <Auth>
+      <NativeBaseProvider theme={theme}>
+        <NavigationContainer>
+          <Main />
+          <Toast />
+        </NavigationContainer>
+      </NativeBaseProvider>
+    </Auth>
+  );
+};
+export default App;
