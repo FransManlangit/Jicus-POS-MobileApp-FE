@@ -4,6 +4,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { NativeBaseProvider, extendTheme } from "native-base";
 import Auth from "./context/store/Auth";
 import Main from "./navigators/Main";
+import { Provider } from "react-redux";
+import store from "./redux/store";
 
 const newColorTheme = {
   brand: {
@@ -17,13 +19,15 @@ const theme = extendTheme({ colors: newColorTheme });
 
 const App = () => {
   return (
-    <Auth>
+    <Auth> 
+      <Provider store={store}>
       <NativeBaseProvider theme={theme}>
         <NavigationContainer>
           <Main />
           <Toast />
         </NavigationContainer>
       </NativeBaseProvider>
+      </Provider>
     </Auth>
   );
 };
