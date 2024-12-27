@@ -1,42 +1,44 @@
 import React, { useContext } from "react";
+import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createStackNavigator } from "@react-navigation/stack";
 import AuthGlobal from "../context/store/AuthGlobal";
+import CustomDrawerContent from "../shared/CustomDrawer";
 
-//Screens
+// Screens
 import Login from "../screens/user/Login";
-import UserProfile from "../screens/user/userProfile";
+import ProductContainer from "../screens/product/ProductContainer";
 
+const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
 const UserNavigator = (props) => {
   const context = useContext(AuthGlobal);
-  console.log(context, "context authenticated USER");
+
+  if (!context.stateUser.isAuthenticated) {
+    return (
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="Login" 
+        component={Login} 
+        
+        />
+      </Stack.Navigator>
+    );
+  }
 
   return (
-    <Stack.Navigator
+    <Drawer.Navigator
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
-        cardStyle: { flex: 1 },
+        drawerStyle: { backgroundColor: "#fff" },
       }}
     >
-      {context.stateUser.isAuthenticated ? (
-        <>
-          <Stack.Screen
-            name="UserProfile"
-            options={{ headerShown: false }}
-            component={UserProfile}
-          ></Stack.Screen>
-        </>
-      ) : (
-        <>
-          <Stack.Screen
-            name="Login"
-            options={{ headerShown: false }}
-            component={Login}
-          ></Stack.Screen>
-        </>
-      )}
-    </Stack.Navigator>
+      <Drawer.Screen name="Products" component={ProductContainer} />
+    </Drawer.Navigator>
   );
 };
 

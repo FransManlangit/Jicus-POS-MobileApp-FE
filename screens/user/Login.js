@@ -50,7 +50,7 @@ const Login = () => {
 
   useEffect(() => {
     if (context.stateUser.isAuthenticated) {
-      navigation.navigate("POS");
+      navigation.navigate("Products");
     }
   }, [context.stateUser.isAuthenticated]);
 
