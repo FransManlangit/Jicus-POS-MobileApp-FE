@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, useRef } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   View,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Pressable,
+  Animated,
+  Image,
 } from "react-native";
 import { Text, Button, Select, FlatList } from "native-base";
 import baseURL from "../../assets/common/baseUrl";
@@ -24,7 +26,7 @@ import { DrawerActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthGlobal from "../../context/store/AuthGlobal";
 import Payment from "../payment/payment"; 
-import qrCodeImage from "../../assets/images/qr.png"; 
+import qrCodeImage from "../../assets/images/qr.png"; // Import your QR code image
 
 const ProductContainer = () => {
   const context = useContext(AuthGlobal);
@@ -39,6 +41,8 @@ const ProductContainer = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [transactionComplete, setTransactionComplete] = useState(false);
+  const modalOpacity = useRef(new Animated.Value(0)).current;
 
   const calculateItemsPrice = () =>
     cartItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
@@ -86,6 +90,14 @@ const ProductContainer = () => {
 
   const handleReferenceNumberChange = (number) => {
     setReferenceNumber(number);
+  };
+
+  const handleModalAnimation = (toValue) => {
+    Animated.timing(modalOpacity, {
+      toValue,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleCheckout = async () => {
@@ -137,7 +149,8 @@ const ProductContainer = () => {
       );
 
       if (response.status === 200 || response.status === 201) {
-        alert("Order Placed Successfully!");
+        setTransactionComplete(true);
+        handleModalAnimation(1);
         setCartItems([]);
       }
 
@@ -207,6 +220,14 @@ const ProductContainer = () => {
       </SafeAreaView>
     );
   }
+
+  const resetCheckoutSummary = () => {
+    setCartItems([]);
+    setSelectedPaymentMethod("");
+    setReferenceNumber("");
+    setTransactionComplete(false);
+    handleModalAnimation(0);
+  };
 
   return (
     <SafeAreaView className="flex-1 flex-row">
@@ -393,6 +414,49 @@ const ProductContainer = () => {
           />
         </View>
       </View>
+
+      {/* Transaction Complete Modal */}
+      {transactionComplete && (
+        <Modal
+          transparent
+          animationType="fade"
+          visible={transactionComplete}
+          onRequestClose={resetCheckoutSummary}
+          onShow={() => handleModalAnimation(1)}
+        >
+          <Animated.View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              opacity: modalOpacity,
+            }}
+          >
+            <View className="bg-white p-6 rounded-lg w-4/5 items-center">
+              <Image
+                source={require("../../assets/images/check.png")}
+                style={{ width: 120, height: 120 }}
+              />
+              <Text className="text-lg font-bold mt-4 text-gray-800">
+                Order Confirmed!
+              </Text>
+              <Text className="text-base text-gray-600 mt-2 text-center">
+                Your payment has been successfully processed. Thank you for your
+                order!
+              </Text>
+              <Pressable
+                className="bg-blue-500 p-3 rounded mt-6 w-full"
+                onPress={resetCheckoutSummary}
+              >
+                <Text className="text-white text-center text-base font-medium">
+                  Continue Shopping
+                </Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };

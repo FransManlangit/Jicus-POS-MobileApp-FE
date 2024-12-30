@@ -63,6 +63,7 @@ const Payment = ({
           {/* Dropdown for Payment Method */}
           <Text className="text-base font-normal mb-2">Payment Method</Text>
           <Select
+          className="h-10"
             selectedValue={selectedPaymentMethod}
             minWidth="200"
             accessibilityLabel="Choose Payment Method"
