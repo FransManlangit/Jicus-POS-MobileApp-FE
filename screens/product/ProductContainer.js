@@ -6,70 +6,27 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
+  Pressable,
 } from "react-native";
 import { Text, Button, Select, FlatList } from "native-base";
 import baseURL from "../../assets/common/baseUrl";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ProductCard from "./ProductCard";
-import { XMarkIcon, PlusIcon, MinusIcon, CheckIcon } from "react-native-heroicons/solid";
+import {
+  XMarkIcon,
+  PlusIcon,
+  MinusIcon,
+  CheckIcon,
+} from "react-native-heroicons/solid";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthGlobal from "../../context/store/AuthGlobal";
-
-const PaymentModal = ({
-  isVisible,
-  onClose,
-  onConfirm,
-  isLoading,
-  selectedPaymentMethod,
-  setSelectedPaymentMethod,
-}) => {
-  return (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={isVisible}
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 justify-center items-center ">
-        <View className="bg-white p-6 rounded-lg ">
-          <Text className="text-lg font-bold mb-4">Select Payment Method</Text>
-
-          {/* Dropdown for Payment Method */}
-          <Select
-            selectedValue={selectedPaymentMethod}
-            minWidth="200"
-            accessibilityLabel="Choose Payment Method"
-            placeholder="Choose Payment Method"
-            onValueChange={(value) => setSelectedPaymentMethod(value)}
-            _selectedItem={{
-              bg: "gray.200",
-              endIcon: <CheckIcon size="5" />,
-            }}
-            mt={1}
-          >
-            <Select.Item label="Cash" value="Cash" />
-            <Select.Item label="G-cash" value="G-cash" />
-          </Select>
-
-          <View className="flex-row justify-end mt-4">
-            <Button onPress={onClose} variant="ghost">
-              Cancel
-            </Button>
-            <Button onPress={onConfirm} isLoading={isLoading}>
-              Confirm
-            </Button>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
+import Payment from "../payment/payment"; 
+import qrCodeImage from "../../assets/images/qr.png"; 
 
 const ProductContainer = () => {
-  const [token, setToken] = useState("");
   const context = useContext(AuthGlobal);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState([]);
@@ -78,17 +35,19 @@ const ProductContainer = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const TAX_RATE = 0.12;
   const navigation = useNavigation();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
 
-  const calculateSubtotal = () =>
-    cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const calculateItemsPrice = () =>
+    cartItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
+  const calculateTaxPrice = (itemsPrice) => Number((0.05 * itemsPrice).toFixed(2));
+  const calculateTotalPrice = (itemsPrice, taxPrice) => Number((itemsPrice + taxPrice).toFixed(2));
 
-  const calculateTax = () => calculateSubtotal() * TAX_RATE;
-
-  const calculateTotal = () => calculateSubtotal() + calculateTax();
+  const itemsPrice = calculateItemsPrice();
+  const taxPrice = calculateTaxPrice(itemsPrice);
+  const totalPrice = calculateTotalPrice(itemsPrice, taxPrice);
 
   const searchProduct = (text) => {
     setProductsFiltered(
@@ -97,7 +56,6 @@ const ProductContainer = () => {
       )
     );
   };
-
 
   const handleAddToCart = () => {
     const existingProductIndex = cartItems.findIndex(
@@ -126,9 +84,12 @@ const ProductContainer = () => {
     setCartItems(updatedCart);
   };
 
-  
+  const handleReferenceNumberChange = (number) => {
+    setReferenceNumber(number);
+  };
+
   const handleCheckout = async () => {
-    console.log("User Context: ", context.stateUser)
+    console.log("User Context: ", context.stateUser);
     if (!selectedPaymentMethod) {
       alert("Please select a payment method.");
       return;
@@ -149,12 +110,17 @@ const ProductContainer = () => {
           quantity: item.quantity,
         })),
         paymentMethod: selectedPaymentMethod,
-        eWallet: selectedPaymentMethod === "G-cash" ? "G-cash" : null,
+        eWallet: selectedPaymentMethod === "GCash" ? "GCash" : null,
+        referenceNumber: selectedPaymentMethod === "GCash" ? referenceNumber : null,
+        itemsPrice,
+        taxPrice,
+        totalPrice,
       };
 
       const token = await AsyncStorage.getItem("jwt");
       if (!token) {
         alert("Authentication error. Please log in again.");
+        setIsLoading(false);
         return;
       }
 
@@ -164,24 +130,28 @@ const ProductContainer = () => {
         },
       };
 
-      const response = await axios.post(`${baseURL}orders/newOrder`, order, config);
+      const response = await axios.post(
+        `${baseURL}orders/newOrder`,
+        order,
+        config
+      );
 
       if (response.status === 200 || response.status === 201) {
         alert("Order Placed Successfully!");
         setCartItems([]);
       }
+
+      setIsLoading(false);
+      setShowPaymentModal(false);
     } catch (error) {
       console.error("Order Placement Error:", error);
       alert(
         "Order Placement Error: " +
           (error?.response?.data?.message || "Something went wrong.")
       );
-    } finally {
       setIsLoading(false);
-      setShowPaymentModal(false);
     }
   };
-
 
   const decrementQuantity = (index) => {
     setCartItems((prevCartItems) =>
@@ -282,8 +252,8 @@ const ProductContainer = () => {
         >
           <View className="flex-1 justify-center items-center">
             <View className="bg-white p-4 rounded-md h-52 w-52 shadow-md">
-              <Text className="text-lg font-bold mb-2">Add to Cart</Text>
-              <Text className="text-sm text-gray-600 mb-4">
+              <Text className="text-xl font-bold mb-2">Add to Cart</Text>
+              <Text className="text-lg text-gray-600 mb-4">
                 {selectedProduct.name} - ₱{selectedProduct.price}
               </Text>
               <TextInput
@@ -301,7 +271,7 @@ const ProductContainer = () => {
                 >
                   Cancel
                 </Button>
-                <Button onPress={handleAddToCart} colorScheme="red">
+                <Button onPress={handleAddToCart} className="bg-[#0080FF]">
                   Add
                 </Button>
               </View>
@@ -383,26 +353,26 @@ const ProductContainer = () => {
           <View className="flex-row justify-between mb-2">
             <Text className="text-lg font-semibold">Subtotal:</Text>
             <Text className="text-lg font-medium">
-              ₱{calculateSubtotal().toFixed(2)}
+              ₱{itemsPrice.toFixed(2)}
             </Text>
           </View>
 
           <View className="flex-row justify-between mb-2">
             <Text className="text-lg font-semibold">Tax:</Text>
             <Text className="text-lg font-medium">
-              ₱{calculateTax().toFixed(2)}
+              ₱{taxPrice.toFixed(2)}
             </Text>
           </View>
 
           <View className="flex-row justify-between mb-4">
             <Text className="text-lg font-semibold">Total:</Text>
             <Text className="text-xl font-bold text-red-600">
-              ₱{calculateTotal().toFixed(2)}
+              ₱{totalPrice.toFixed(2)}
             </Text>
           </View>
           <TouchableOpacity
-           onPress={() => setShowPaymentModal(true)}
-            className="bg-red-600 py-3 rounded-lg"
+            onPress={() => setShowPaymentModal(true)}
+            className="bg-[#0080FF] py-3 rounded-lg"
           >
             <Text className="text-white text-center text-lg font-bold">
               TENDER
@@ -410,13 +380,16 @@ const ProductContainer = () => {
           </TouchableOpacity>
 
           {/* Payment Modal */}
-          <PaymentModal
+          <Payment
             isVisible={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
             onConfirm={handleCheckout}
             isLoading={isLoading}
             selectedPaymentMethod={selectedPaymentMethod}
             setSelectedPaymentMethod={setSelectedPaymentMethod}
+            totalAmount={totalPrice}
+            qrCodeImage={qrCodeImage}
+            onReferenceNumberChange={handleReferenceNumberChange}
           />
         </View>
       </View>
