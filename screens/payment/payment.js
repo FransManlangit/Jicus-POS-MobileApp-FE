@@ -1,5 +1,5 @@
 import { Image } from "react-native"; 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ActivityIndicator,
@@ -20,50 +20,66 @@ const Payment = ({
   totalAmount,
   qrCodeImage, 
   onReferenceNumberChange,
+  onCashAmountChange,
+  cashAmount,
 }) => {
-  const [cashAmount, setCashAmount] = useState(0);
+
   const [change, setChange] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
 
-  const handleCashAmountChange = (value) => {
-    const cash = parseFloat(value) || 0;
-    setCashAmount(cash);
-    const calculatedChange = cash - totalAmount;
-    setChange(calculatedChange);
+  useEffect(() => {
+    if (selectedPaymentMethod === "Cash") {
+      const cash = parseFloat(cashAmount) || 0;
+      setChange(cash - totalAmount);
+    }
+  }, [cashAmount, totalAmount, selectedPaymentMethod]);
 
-    if (calculatedChange < 0) {
-      setErrorMessage("Insufficient cash amount.");
-    } else {
-      setErrorMessage("");
+  const handleCashAmountChange = (value) => {
+    const numericValue = value.replace(/[^0-9.]/g, "");
+    onCashAmountChange(numericValue);
+  };
+
+  const handleReferenceNumberChange = (value) => {
+    const numericValue = value.replace(/[^0-9]/g, "");
+    if (numericValue.length <= 13) {
+      setReferenceNumber(numericValue);
+      onReferenceNumberChange(numericValue);
     }
   };
 
   const handleConfirm = () => {
-    if (selectedPaymentMethod === "GCash" && !referenceNumber.trim()) {
-      alert("Please enter the GCash reference number.");
+    if (selectedPaymentMethod === "GCash" && referenceNumber.length !== 13) {
+      setErrorMessage("Reference number must be exactly 13 digits.");
       return;
     }
 
-    onReferenceNumberChange(referenceNumber); 
+    const parsedCashAmount = parseFloat(cashAmount);
+    if (selectedPaymentMethod === "Cash" && (isNaN(parsedCashAmount) || parsedCashAmount <= 0)) {
+      setErrorMessage("Please enter a valid cash amount.");
+      return;
+    }
+
+    if (selectedPaymentMethod === "Cash" && parsedCashAmount < totalAmount) {
+      setErrorMessage("Insufficient cash. Please enter a valid amount.");
+      return;
+    }
+
+    setErrorMessage("");
     onConfirm();
   };
 
+
+
   return (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={isVisible}
-      onRequestClose={onClose}
-    >
+    <Modal transparent animationType="slide" visible={isVisible} onRequestClose={onClose}>
       <View className="flex-1 justify-center items-center">
         <View className="bg-white p-6 rounded-lg w-4/5">
           <Text className="text-lg font-bold mb-4">Checkout Summary</Text>
 
-          {/* Dropdown for Payment Method */}
           <Text className="text-base font-normal mb-2">Payment Method</Text>
           <Select
-          className="h-10"
+            className="h-10"
             selectedValue={selectedPaymentMethod}
             minWidth="200"
             accessibilityLabel="Choose Payment Method"
@@ -101,7 +117,7 @@ const Payment = ({
                 className="border border-gray-300 rounded p-2 mt-2"
                 placeholder="Enter GCash reference number"
                 value={referenceNumber}
-                onChangeText={setReferenceNumber}
+                onChangeText={handleReferenceNumberChange}
               />
             </>
           )}
@@ -135,18 +151,11 @@ const Payment = ({
 
           {/* Action Buttons */}
           <View className="flex-row justify-between mt-6">
-            <Pressable
-              className="flex-1 bg-[#C92519] p-2 rounded mr-2"
-              onPress={onClose}
-            >
+            <Pressable className="flex-1 bg-[#C92519] p-2 rounded mr-2" onPress={onClose}>
               <Text className="text-center text-white text-base">Cancel</Text>
             </Pressable>
             <Pressable
-              className={`flex-1 p-2 rounded ml-2 ${
-                isLoading || (selectedPaymentMethod === "Cash" && change < 0)
-                  ? "bg-gray-400"
-                  : "bg-[#0080FF]"
-              }`}
+              className={`flex-1 p-2 rounded ml-2 ${isLoading || (selectedPaymentMethod === "Cash" && change < 0) ? "bg-gray-400" : "bg-[#0080FF]"}`}
               onPress={handleConfirm}
               disabled={isLoading || (selectedPaymentMethod === "Cash" && change < 0)}
             >

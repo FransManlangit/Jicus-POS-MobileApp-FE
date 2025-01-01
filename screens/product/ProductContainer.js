@@ -59,9 +59,9 @@ const ProductContainer = () => {
   const totalPrice = calculateTotalPrice(itemsPrice, taxPrice);
 
   const filteredProducts = products.filter((product) => {
-    const matchesSearchTerm = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const productFilter = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = product.category === selectedCategory;
-    return matchesSearchTerm && matchesCategory;
+    return productFilter && matchesCategory;
   });
 
   const handleAddToCart = () => {
@@ -101,6 +101,7 @@ const ProductContainer = () => {
     }
   };
 
+
   const handleModalAnimation = (toValue) => {
     Animated.timing(modalOpacity, {
       toValue,
@@ -114,25 +115,34 @@ const ProductContainer = () => {
       Alert.alert("Error", "Please select a payment method.");
       return;
     }
-
+  
     if (selectedPaymentMethod === "GCash" && referenceNumber.length !== 13) {
       Alert.alert("Error", "Reference number must be exactly 13 digits.");
       return;
     }
-
-    if (selectedPaymentMethod === "Cash" && (!cashAmount || parseFloat(cashAmount) <= 0)) {
+    
+    const parsedCashAmount = parseFloat(cashAmount);
+    if (selectedPaymentMethod === "Cash" && (!cashAmount || parsedCashAmount <= 0)) {
       Alert.alert("Error", "Please enter a valid cash amount.");
       return;
     }
+  
 
+    if (selectedPaymentMethod === "Cash" && parsedCashAmount < totalPrice) {
+      Alert.alert("Error", "Insufficient cash. Please enter a valid amount.");
+      return;
+    }
+
+  
+    // Other checks (user authentication, etc.)
     if (!context.stateUser.isAuthenticated) {
       Alert.alert("Error", "User not authenticated. Please log in.");
       return;
     }
-
+  
     try {
       setIsLoading(true);
-
+  
       const order = {
         user: context.stateUser.user.userId,
         orderItems: cartItems.map((item) => ({
@@ -142,49 +152,45 @@ const ProductContainer = () => {
         paymentMethod: selectedPaymentMethod,
         eWallet: selectedPaymentMethod === "GCash" ? "GCash" : null,
         referenceNumber: selectedPaymentMethod === "GCash" ? referenceNumber : null,
-        cashAmount: selectedPaymentMethod === "Cash" ? cashAmount : null,
+        cashAmount: selectedPaymentMethod === "Cash" ? parsedCashAmount : null,
         itemsPrice,
         taxPrice,
         totalPrice,
       };
-
+      
       const token = await AsyncStorage.getItem("jwt");
       if (!token) {
         Alert.alert("Error", "Authentication error. Please log in again.");
         setIsLoading(false);
         return;
       }
-
+  
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       };
-
-      const response = await axios.post(
-        `${baseURL}orders/newOrder`,
-        order,
-        config
-      );
-
+  
+      const response = await axios.post(`${baseURL}orders/newOrder`, order, config);
+  
       if (response.status === 200 || response.status === 201) {
         setTransactionComplete(true);
         handleModalAnimation(1);
         setCartItems([]);
       }
-
+  
       setIsLoading(false);
       setShowPaymentModal(false);
     } catch (error) {
       console.error("Order Placement Error:", error);
       Alert.alert(
         "Error",
-        "Order Placement Error: " +
-          (error?.response?.data?.message || "Something went wrong.")
+        "Order Placement Error: " + (error?.response?.data?.message || "Something went wrong.")
       );
       setIsLoading(false);
     }
   };
+  
 
   const decrementQuantity = (index) => {
     setCartItems((prevCartItems) =>
@@ -526,3 +532,5 @@ const ProductContainer = () => {
 };
 
 export default ProductContainer;
+
+
