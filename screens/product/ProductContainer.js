@@ -9,8 +9,10 @@ import {
   Pressable,
   Animated,
   Image,
+  FlatList,
+  Alert,
 } from "react-native";
-import { Text, Button, Select, FlatList } from "native-base";
+import { Text, Button, Select } from "native-base";
 import baseURL from "../../assets/common/baseUrl";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,7 +28,7 @@ import { DrawerActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthGlobal from "../../context/store/AuthGlobal";
 import Payment from "../payment/payment"; 
-import qrCodeImage from "../../assets/images/qr.png"; // Import your QR code image
+import qrCodeImage from "../../assets/images/qr.png"; 
 
 const ProductContainer = () => {
   const context = useContext(AuthGlobal);
@@ -41,8 +43,11 @@ const ProductContainer = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [cashAmount, setCashAmount] = useState("");
   const [transactionComplete, setTransactionComplete] = useState(false);
   const modalOpacity = useRef(new Animated.Value(0)).current;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Retail");
 
   const calculateItemsPrice = () =>
     cartItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
@@ -53,13 +58,11 @@ const ProductContainer = () => {
   const taxPrice = calculateTaxPrice(itemsPrice);
   const totalPrice = calculateTotalPrice(itemsPrice, taxPrice);
 
-  const searchProduct = (text) => {
-    setProductsFiltered(
-      products.filter((i) =>
-        i.projectTitle.toLowerCase().includes(text.toLowerCase())
-      )
-    );
-  };
+  const filteredProducts = products.filter((product) => {
+    const matchesSearchTerm = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = product.category === selectedCategory;
+    return matchesSearchTerm && matchesCategory;
+  });
 
   const handleAddToCart = () => {
     const existingProductIndex = cartItems.findIndex(
@@ -70,11 +73,9 @@ const ProductContainer = () => {
       const updatedCart = [...cartItems];
       updatedCart[existingProductIndex].quantity += quantity;
       setCartItems(updatedCart);
-      console.log(`Updated Cart:`, updatedCart[existingProductIndex]);
     } else {
       const newCartItem = { ...selectedProduct, quantity };
       setCartItems([...cartItems, newCartItem]);
-      console.log(`Added new product to cart:`, newCartItem);
     }
 
     setShowModal(false);
@@ -89,7 +90,15 @@ const ProductContainer = () => {
   };
 
   const handleReferenceNumberChange = (number) => {
-    setReferenceNumber(number);
+    if (/^\d*$/.test(number) && number.length <= 13) {
+      setReferenceNumber(number);
+    }
+  };
+
+  const handleCashAmountChange = (amount) => {
+    if (/^\d*\.?\d*$/.test(amount)) {
+      setCashAmount(amount);
+    }
   };
 
   const handleModalAnimation = (toValue) => {
@@ -101,14 +110,23 @@ const ProductContainer = () => {
   };
 
   const handleCheckout = async () => {
-    console.log("User Context: ", context.stateUser);
     if (!selectedPaymentMethod) {
-      alert("Please select a payment method.");
+      Alert.alert("Error", "Please select a payment method.");
+      return;
+    }
+
+    if (selectedPaymentMethod === "GCash" && referenceNumber.length !== 13) {
+      Alert.alert("Error", "Reference number must be exactly 13 digits.");
+      return;
+    }
+
+    if (selectedPaymentMethod === "Cash" && (!cashAmount || parseFloat(cashAmount) <= 0)) {
+      Alert.alert("Error", "Please enter a valid cash amount.");
       return;
     }
 
     if (!context.stateUser.isAuthenticated) {
-      alert("User not authenticated. Please log in.");
+      Alert.alert("Error", "User not authenticated. Please log in.");
       return;
     }
 
@@ -124,6 +142,7 @@ const ProductContainer = () => {
         paymentMethod: selectedPaymentMethod,
         eWallet: selectedPaymentMethod === "GCash" ? "GCash" : null,
         referenceNumber: selectedPaymentMethod === "GCash" ? referenceNumber : null,
+        cashAmount: selectedPaymentMethod === "Cash" ? cashAmount : null,
         itemsPrice,
         taxPrice,
         totalPrice,
@@ -131,7 +150,7 @@ const ProductContainer = () => {
 
       const token = await AsyncStorage.getItem("jwt");
       if (!token) {
-        alert("Authentication error. Please log in again.");
+        Alert.alert("Error", "Authentication error. Please log in again.");
         setIsLoading(false);
         return;
       }
@@ -158,7 +177,8 @@ const ProductContainer = () => {
       setShowPaymentModal(false);
     } catch (error) {
       console.error("Order Placement Error:", error);
-      alert(
+      Alert.alert(
+        "Error",
         "Order Placement Error: " +
           (error?.response?.data?.message || "Something went wrong.")
       );
@@ -225,6 +245,7 @@ const ProductContainer = () => {
     setCartItems([]);
     setSelectedPaymentMethod("");
     setReferenceNumber("");
+    setCashAmount("");
     setTransactionComplete(false);
     handleModalAnimation(0);
   };
@@ -239,10 +260,51 @@ const ProductContainer = () => {
           <Ionicons name="menu" size={30} color="#000" />
         </TouchableOpacity>
       </View>
-      {/* Product Grid */}
-      <SafeAreaView className="flex-1">
+
+      <View className="flex-1 py-6">
+        {/* Search Bar and Category Filter */}
+        <View className="p-4">
+          <TextInput
+            placeholder="Search..."
+            value={searchTerm}
+            onChangeText={(text) => setSearchTerm(text)}
+            className="border p-2 rounded mb-4"
+          />
+          <View className="flex-row justify-around mb-4 py-10">
+            <TouchableOpacity
+              onPress={() => setSelectedCategory("Retail")}
+              className={`p-2 rounded ${
+                selectedCategory === "Retail" ? "bg-blue-500" : "bg-gray-200"
+              }`}
+            >
+              <Text
+                className={
+                  selectedCategory === "Retail" ? "text-white" : "text-black"
+                }
+              >
+                Retail
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSelectedCategory("Whole Sale")}
+              className={`p-2 rounded ${
+                selectedCategory === "Whole Sale" ? "bg-blue-500" : "bg-gray-200"
+              }`}
+            >
+              <Text
+                className={
+                  selectedCategory === "Whole Sale" ? "text-white" : "text-black"
+                }
+              >
+                Wholesale
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Product Grid */}
         <FlatList
-          data={products}
+          data={filteredProducts}
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => {
@@ -261,7 +323,7 @@ const ProductContainer = () => {
           contentContainerStyle={{ padding: 10 }}
           columnWrapperStyle={{ justifyContent: "space-between" }}
         />
-      </SafeAreaView>
+      </View>
 
       {/* Modal for Quantity */}
       {showModal && (
@@ -411,6 +473,8 @@ const ProductContainer = () => {
             totalAmount={totalPrice}
             qrCodeImage={qrCodeImage}
             onReferenceNumberChange={handleReferenceNumberChange}
+            onCashAmountChange={handleCashAmountChange}
+            cashAmount={cashAmount}
           />
         </View>
       </View>
