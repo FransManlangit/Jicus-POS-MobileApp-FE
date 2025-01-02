@@ -520,7 +520,7 @@ const ProductContainer = () => {
                 onPress={resetCheckoutSummary}
               >
                 <Text className="text-white text-center text-base font-medium">
-                  Continue Shopping
+                  Confirm
                 </Text>
               </Pressable>
             </View>
