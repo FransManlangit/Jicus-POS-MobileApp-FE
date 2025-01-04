@@ -45,6 +45,9 @@ const Payment = ({
     if (numericValue.length <= 13) {
       setReferenceNumber(numericValue);
       onReferenceNumberChange(numericValue);
+      if (numericValue.length === 13) {
+        setErrorMessage("");
+      }
     }
   };
 
@@ -68,8 +71,6 @@ const Payment = ({
     setErrorMessage("");
     onConfirm();
   };
-
-
 
   return (
     <Modal transparent animationType="slide" visible={isVisible} onRequestClose={onClose}>
@@ -119,6 +120,9 @@ const Payment = ({
                 value={referenceNumber}
                 onChangeText={handleReferenceNumberChange}
               />
+              {errorMessage && selectedPaymentMethod === "GCash" && (
+                <Text className="text-red-500 mt-2">{errorMessage}</Text>
+              )}
             </>
           )}
 
@@ -133,21 +137,18 @@ const Payment = ({
                 value={cashAmount.toString()}
                 onChangeText={handleCashAmountChange}
               />
-              {errorMessage ? (
+              {errorMessage && selectedPaymentMethod === "Cash" && (
                 <Text className="text-red-500 mt-2">{errorMessage}</Text>
-              ) : null}
+              )}
+              <Text className="text-base font-normal mt-4">
+                Change: ₱{change >= 0 ? change.toFixed(2) : "0.00"}
+              </Text>
             </>
           )}
 
           <Text className="text-base font-semibold mb-2">
             Total Price: ₱{totalAmount.toFixed(2)}
           </Text>
-
-          {selectedPaymentMethod === "Cash" && (
-            <Text className="text-base font-normal mt-4">
-              Change: ₱{change >= 0 ? change.toFixed(2) : "0.00"}
-            </Text>
-          )}
 
           {/* Action Buttons */}
           <View className="flex-row justify-between mt-6">

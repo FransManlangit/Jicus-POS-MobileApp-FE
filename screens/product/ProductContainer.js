@@ -27,8 +27,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AuthGlobal from "../../context/store/AuthGlobal";
-import Payment from "../payment/payment"; 
-import qrCodeImage from "../../assets/images/qr.png"; 
+import Payment from "../payment/payment";
+import qrCodeImage from "../../assets/images/qr.png";
 
 const ProductContainer = () => {
   const context = useContext(AuthGlobal);
@@ -51,18 +51,21 @@ const ProductContainer = () => {
 
   const calculateItemsPrice = () =>
     cartItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
-  const calculateTaxPrice = (itemsPrice) => Number((0.05 * itemsPrice).toFixed(2));
-  const calculateTotalPrice = (itemsPrice, taxPrice) => Number((itemsPrice + taxPrice).toFixed(2));
+  const calculateTaxPrice = (itemsPrice) =>
+    Number((0.05 * itemsPrice).toFixed(2));
+  const calculateTotalPrice = (itemsPrice, taxPrice) =>
+    Number((itemsPrice + taxPrice).toFixed(2));
 
   const itemsPrice = calculateItemsPrice();
   const taxPrice = calculateTaxPrice(itemsPrice);
   const totalPrice = calculateTotalPrice(itemsPrice, taxPrice);
 
   const filteredProducts = products.filter((product) => {
-    const productFilter = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearchTerm = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = product.category === selectedCategory;
-    return productFilter && matchesCategory;
+    return matchesSearchTerm && matchesCategory;
   });
+
 
   const handleAddToCart = () => {
     const existingProductIndex = cartItems.findIndex(
@@ -82,12 +85,14 @@ const ProductContainer = () => {
     setQuantity(1);
     setSelectedProduct(null);
   };
+  
 
   const removeFromCart = (index) => {
     const updatedCart = [...cartItems];
     updatedCart.splice(index, 1);
     setCartItems(updatedCart);
-  };
+  } 
+
 
   const handleReferenceNumberChange = (number) => {
     if (/^\d*$/.test(number) && number.length <= 13) {
@@ -100,7 +105,7 @@ const ProductContainer = () => {
       setCashAmount(amount);
     }
   };
-
+ 
 
   const handleModalAnimation = (toValue) => {
     Animated.timing(modalOpacity, {
@@ -115,34 +120,33 @@ const ProductContainer = () => {
       Alert.alert("Error", "Please select a payment method.");
       return;
     }
-  
+
     if (selectedPaymentMethod === "GCash" && referenceNumber.length !== 13) {
       Alert.alert("Error", "Reference number must be exactly 13 digits.");
       return;
     }
-    
+
     const parsedCashAmount = parseFloat(cashAmount);
-    if (selectedPaymentMethod === "Cash" && (!cashAmount || parsedCashAmount <= 0)) {
+    if (
+      selectedPaymentMethod === "Cash" &&
+      (!cashAmount || parsedCashAmount <= 0)
+    ) {
       Alert.alert("Error", "Please enter a valid cash amount.");
       return;
     }
-  
-
     if (selectedPaymentMethod === "Cash" && parsedCashAmount < totalPrice) {
       Alert.alert("Error", "Insufficient cash. Please enter a valid amount.");
       return;
     }
 
-  
-    // Other checks (user authentication, etc.)
     if (!context.stateUser.isAuthenticated) {
       Alert.alert("Error", "User not authenticated. Please log in.");
       return;
     }
-  
+
     try {
       setIsLoading(true);
-  
+
       const order = {
         user: context.stateUser.user.userId,
         orderItems: cartItems.map((item) => ({
@@ -150,47 +154,54 @@ const ProductContainer = () => {
           quantity: item.quantity,
         })),
         paymentMethod: selectedPaymentMethod,
-        eWallet: selectedPaymentMethod === "GCash" ? "GCash" : null,
-        referenceNumber: selectedPaymentMethod === "GCash" ? referenceNumber : null,
+        referenceNumber:
+          selectedPaymentMethod === "GCash" ? referenceNumber : null,
         cashAmount: selectedPaymentMethod === "Cash" ? parsedCashAmount : null,
         itemsPrice,
         taxPrice,
         totalPrice,
       };
-      
+
+      console.log("Order:", order); // Log the order object for debugging
+
       const token = await AsyncStorage.getItem("jwt");
       if (!token) {
         Alert.alert("Error", "Authentication error. Please log in again.");
         setIsLoading(false);
         return;
       }
-  
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       };
-  
-      const response = await axios.post(`${baseURL}orders/newOrder`, order, config);
-  
+
+      const response = await axios.post(
+        `${baseURL}orders/newOrder`,
+        order,
+        config
+      );
+
       if (response.status === 200 || response.status === 201) {
         setTransactionComplete(true);
         handleModalAnimation(1);
         setCartItems([]);
       }
-  
+
       setIsLoading(false);
       setShowPaymentModal(false);
     } catch (error) {
       console.error("Order Placement Error:", error);
+      console.error("Error Response:", error.response.data); // Log the error response data
       Alert.alert(
         "Error",
-        "Order Placement Error: " + (error?.response?.data?.message || "Something went wrong.")
+        "Order Placement Error: " +
+          (error?.response?.data?.message || "Something went wrong.")
       );
       setIsLoading(false);
     }
   };
-  
 
   const decrementQuantity = (index) => {
     setCartItems((prevCartItems) =>
@@ -294,12 +305,16 @@ const ProductContainer = () => {
             <TouchableOpacity
               onPress={() => setSelectedCategory("Whole Sale")}
               className={`p-2 rounded ${
-                selectedCategory === "Whole Sale" ? "bg-blue-500" : "bg-gray-200"
+                selectedCategory === "Whole Sale"
+                  ? "bg-blue-500"
+                  : "bg-gray-200"
               }`}
             >
               <Text
                 className={
-                  selectedCategory === "Whole Sale" ? "text-white" : "text-black"
+                  selectedCategory === "Whole Sale"
+                    ? "text-white"
+                    : "text-black"
                 }
               >
                 Wholesale
@@ -370,8 +385,8 @@ const ProductContainer = () => {
       )}
 
       {/* Cart Section */}
-      <View className="w-5/12 bg-gray-50 shadow-lg rounded-lg p-6">
-        <Text className="text-3xl text-center font-bold mb-6">Cart</Text>
+      <SafeAreaView className="w-5/12 bg-gray-50 shadow-lg rounded-lg p-6">
+       
 
         {/* Table Headers */}
         <View className="flex-row justify-between border-b pb-2 mb-4">
@@ -448,9 +463,7 @@ const ProductContainer = () => {
 
           <View className="flex-row justify-between mb-2">
             <Text className="text-lg font-semibold">Tax:</Text>
-            <Text className="text-lg font-medium">
-              ₱{taxPrice.toFixed(2)}
-            </Text>
+            <Text className="text-lg font-medium">₱{taxPrice.toFixed(2)}</Text>
           </View>
 
           <View className="flex-row justify-between mb-4">
@@ -483,7 +496,7 @@ const ProductContainer = () => {
             cashAmount={cashAmount}
           />
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Transaction Complete Modal */}
       {transactionComplete && (
@@ -532,5 +545,3 @@ const ProductContainer = () => {
 };
 
 export default ProductContainer;
-
-
