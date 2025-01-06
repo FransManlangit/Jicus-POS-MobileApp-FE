@@ -51,10 +51,8 @@ const ProductContainer = () => {
 
   const calculateItemsPrice = () =>
     cartItems.reduce((acc, item) => acc + item.quantity * item.price, 0);
-  const calculateTaxPrice = (itemsPrice) =>
-    Number((0.05 * itemsPrice).toFixed(2));
-  const calculateTotalPrice = (itemsPrice, taxPrice) =>
-    Number((itemsPrice + taxPrice).toFixed(2));
+  const calculateTaxPrice = (itemsPrice) => Number((0.12 * itemsPrice).toFixed(2)); // Assuming 12% tax
+  const calculateTotalPrice = (itemsPrice, taxPrice) => Number((itemsPrice + taxPrice).toFixed(2));
 
   const itemsPrice = calculateItemsPrice();
   const taxPrice = calculateTaxPrice(itemsPrice);
@@ -65,8 +63,7 @@ const ProductContainer = () => {
     const matchesCategory = product.category === selectedCategory;
     return matchesSearchTerm && matchesCategory;
   });
-
-
+  
   const handleAddToCart = () => {
     const existingProductIndex = cartItems.findIndex(
       (item) => item.id === selectedProduct.id
@@ -85,14 +82,12 @@ const ProductContainer = () => {
     setQuantity(1);
     setSelectedProduct(null);
   };
-  
 
   const removeFromCart = (index) => {
     const updatedCart = [...cartItems];
     updatedCart.splice(index, 1);
     setCartItems(updatedCart);
-  } 
-
+  };
 
   const handleReferenceNumberChange = (number) => {
     if (/^\d*$/.test(number) && number.length <= 13) {
@@ -105,7 +100,6 @@ const ProductContainer = () => {
       setCashAmount(amount);
     }
   };
- 
 
   const handleModalAnimation = (toValue) => {
     Animated.timing(modalOpacity, {
@@ -120,20 +114,18 @@ const ProductContainer = () => {
       Alert.alert("Error", "Please select a payment method.");
       return;
     }
-
+  
     if (selectedPaymentMethod === "GCash" && referenceNumber.length !== 13) {
       Alert.alert("Error", "Reference number must be exactly 13 digits.");
       return;
     }
-
+    
     const parsedCashAmount = parseFloat(cashAmount);
-    if (
-      selectedPaymentMethod === "Cash" &&
-      (!cashAmount || parsedCashAmount <= 0)
-    ) {
+    if (selectedPaymentMethod === "Cash" && (!cashAmount || parsedCashAmount <= 0)) {
       Alert.alert("Error", "Please enter a valid cash amount.");
       return;
     }
+
     if (selectedPaymentMethod === "Cash" && parsedCashAmount < totalPrice) {
       Alert.alert("Error", "Insufficient cash. Please enter a valid amount.");
       return;
@@ -154,8 +146,7 @@ const ProductContainer = () => {
           quantity: item.quantity,
         })),
         paymentMethod: selectedPaymentMethod,
-        referenceNumber:
-          selectedPaymentMethod === "GCash" ? referenceNumber : null,
+        referenceNumber: selectedPaymentMethod === "GCash" ? referenceNumber : null,
         cashAmount: selectedPaymentMethod === "Cash" ? parsedCashAmount : null,
         itemsPrice,
         taxPrice,
@@ -237,18 +228,21 @@ const ProductContainer = () => {
       axios
         .get(`${baseURL}products`)
         .then((res) => {
-          setProducts(res.data);
+          // Filter out products with zero stock
+          const availableProducts = res.data.filter(product => product.stock > 0);
+          setProducts(availableProducts);
           setLoading(false);
         })
         .catch((error) => {
           console.error("API products call error:", error);
         });
-
+  
       return () => {
         setProducts([]);
       };
     }, [])
   );
+
 
   if (loading) {
     return (
@@ -278,7 +272,7 @@ const ProductContainer = () => {
         </TouchableOpacity>
       </View>
 
-      <View className="flex-1 py-6">
+      <View className="flex-1 py-12">
         {/* Search Bar and Category Filter */}
         <View className="p-4">
           <TextInput
